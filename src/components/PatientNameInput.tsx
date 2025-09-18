@@ -1,6 +1,7 @@
 import React from 'react';
-import { Menu, User } from 'lucide-react';
+import { Menu, User, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,12 +14,14 @@ interface PatientNameInputProps {
   patientName: string;
   onPatientNameChange: (name: string) => void;
   onClearAll: () => void;
+  onGeneratePlaceholder: () => void;
 }
 
 export function PatientNameInput({ 
   patientName, 
   onPatientNameChange, 
-  onClearAll 
+  onClearAll,
+  onGeneratePlaceholder
 }: PatientNameInputProps) {
   return (
     <div className="sidebar-card space-y-4">
@@ -35,6 +38,10 @@ export function PatientNameInput({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuItem onClick={onGeneratePlaceholder}>
+              <UserPlus className="h-4 w-4 mr-2" />
+              Generate Patient #
+            </DropdownMenuItem>
             <DropdownMenuItem onClick={() => onPatientNameChange('')}>
               Clear Patient Name
             </DropdownMenuItem>
@@ -49,13 +56,23 @@ export function PatientNameInput({
         </DropdownMenu>
       </div>
       
-      <input
-        type="text"
-        placeholder="Enter patient name..."
-        value={patientName}
-        onChange={(e) => onPatientNameChange(e.target.value)}
-        className="patient-input"
-      />
+      <div className="flex gap-2">
+        <Input
+          type="text"
+          placeholder="Enter patient name or use Patient #..."
+          value={patientName}
+          onChange={(e) => onPatientNameChange(e.target.value)}
+          className="flex-1"
+        />
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={onGeneratePlaceholder}
+          title="Generate Patient Number"
+        >
+          <UserPlus className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 }

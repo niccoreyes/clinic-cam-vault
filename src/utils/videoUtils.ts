@@ -9,30 +9,79 @@ export async function generateVideoThumbnail(videoBlob: Blob): Promise<string> {
       return;
     }
 
+    video.crossOrigin = 'anonymous';
+    video.preload = 'metadata';
+
     video.onloadedmetadata = () => {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      canvas.width = video.videoWidth || 320;
+      canvas.height = video.videoHeight || 240;
       
-      video.currentTime = Math.min(1, video.duration * 0.1); // Seek to 10% or 1 second
+      // Seek to a safe position
+      video.currentTime = Math.min(0.5, video.duration * 0.1);
     };
 
     video.onseeked = () => {
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      const thumbnail = canvas.toDataURL('image/jpeg', 0.8);
-      
-      // Clean up
-      URL.revokeObjectURL(video.src);
-      
-      resolve(thumbnail);
+      try {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const thumbnail = canvas.toDataURL('image/jpeg', 0.8);
+        
+        // Clean up
+        URL.revokeObjectURL(video.src);
+        
+        resolve(thumbnail);
+      } catch (err) {
+        // Fallback: create a simple colored rectangle
+        ctx.fillStyle = 'hsl(var(--medical))';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = 'white';
+        ctx.font = '20px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Video', canvas.width / 2, canvas.height / 2);
+        
+        const thumbnail = canvas.toDataURL('image/jpeg', 0.8);
+        URL.revokeObjectURL(video.src);
+        resolve(thumbnail);
+      }
     };
 
     video.onerror = () => {
-      reject(new Error('Failed to load video for thumbnail generation'));
+      // Fallback: create a simple colored rectangle
+      const fallbackCanvas = document.createElement('canvas');
+      const fallbackCtx = fallbackCanvas.getContext('2d');
+      if (fallbackCtx) {
+        fallbackCanvas.width = 320;
+        fallbackCanvas.height = 240;
+        fallbackCtx.fillStyle = 'hsl(var(--medical))';
+        fallbackCtx.fillRect(0, 0, 320, 240);
+        fallbackCtx.fillStyle = 'white';
+        fallbackCtx.font = '20px sans-serif';
+        fallbackCtx.textAlign = 'center';
+        fallbackCtx.fillText('Video', 160, 120);
+        
+        const thumbnail = fallbackCanvas.toDataURL('image/jpeg', 0.8);
+        URL.revokeObjectURL(video.src);
+        resolve(thumbnail);
+      } else {
+        reject(new Error('Failed to create fallback thumbnail'));
+      }
     };
 
     video.src = URL.createObjectURL(videoBlob);
     video.load();
   });
+}
+
+// Generate next patient number
+export function getNextPatientNumber(existingVideos: any[]): string {
+  const patientNumbers = existingVideos
+    .map(video => {
+      const match = video.patientName.match(/^Patient #(\d+)/);
+      return match ? parseInt(match[1]) : 0;
+    })
+    .filter(num => num > 0);
+  
+  const maxNumber = patientNumbers.length > 0 ? Math.max(...patientNumbers) : 0;
+  return `Patient #${maxNumber + 1}`;
 }
 
 export function formatFileSize(bytes: number): string {

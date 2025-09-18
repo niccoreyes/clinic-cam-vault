@@ -6,7 +6,7 @@ import { VideoGallery } from '@/components/VideoGallery';
 import { VideoPlaybackDialog } from '@/components/VideoPlaybackDialog';
 import { useWebcam } from '@/hooks/useWebcam';
 import { saveVideo, getVideos, deleteVideo } from '@/lib/database';
-import { generateVideoThumbnail } from '@/utils/videoUtils';
+import { generateVideoThumbnail, getNextPatientNumber } from '@/utils/videoUtils';
 import { useToast } from '@/hooks/use-toast';
 import { Stethoscope, Wifi, WifiOff } from 'lucide-react';
 
@@ -26,10 +26,13 @@ const Index = () => {
     isStreaming,
     isRecording,
     error,
+    cameras,
+    selectedCameraId,
     startStream,
     stopStream,
     startRecording,
     stopRecording,
+    switchCamera,
   } = useWebcam();
 
   const [patientName, setPatientName] = useState('');
@@ -161,6 +164,11 @@ const Index = () => {
     }
   };
 
+  const handleGeneratePlaceholder = () => {
+    const nextPatientNumber = getNextPatientNumber(videos);
+    setPatientName(nextPatientNumber);
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -207,7 +215,10 @@ const Index = () => {
               videoRef={videoRef}
               isStreaming={isStreaming}
               error={error}
+              cameras={cameras}
+              selectedCameraId={selectedCameraId}
               onStartStream={startStream}
+              onSwitchCamera={switchCamera}
             />
             
             <div className="flex justify-center">
@@ -225,6 +236,7 @@ const Index = () => {
               patientName={patientName}
               onPatientNameChange={setPatientName}
               onClearAll={handleClearAll}
+              onGeneratePlaceholder={handleGeneratePlaceholder}
             />
             
             <VideoGallery

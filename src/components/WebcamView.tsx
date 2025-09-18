@@ -2,15 +2,19 @@ import React, { useEffect } from 'react';
 import { Camera, CameraOff, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { CameraSelector } from '@/components/CameraSelector';
 
 interface WebcamViewProps {
   videoRef: React.RefObject<HTMLVideoElement>;
   isStreaming: boolean;
   error: string | null;
+  cameras: MediaDeviceInfo[];
+  selectedCameraId: string | null;
   onStartStream: () => void;
+  onSwitchCamera: (deviceId: string) => void;
 }
 
-export function WebcamView({ videoRef, isStreaming, error, onStartStream }: WebcamViewProps) {
+export function WebcamView({ videoRef, isStreaming, error, cameras, selectedCameraId, onStartStream, onSwitchCamera }: WebcamViewProps) {
   useEffect(() => {
     if (videoRef.current && isStreaming) {
       videoRef.current.play().catch(console.error);
@@ -34,6 +38,17 @@ export function WebcamView({ videoRef, isStreaming, error, onStartStream }: Webc
           playsInline
           className="h-full w-full object-cover"
         />
+        
+        {isStreaming && (
+          <div className="absolute top-4 right-4">
+            <CameraSelector
+              cameras={cameras}
+              selectedCameraId={selectedCameraId}
+              onSwitchCamera={onSwitchCamera}
+              disabled={false}
+            />
+          </div>
+        )}
         
         {!isStreaming && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/50 backdrop-blur-sm">
