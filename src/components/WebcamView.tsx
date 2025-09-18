@@ -22,7 +22,7 @@ export function WebcamView({ videoRef, isStreaming, error, cameras, selectedCame
   }, [isStreaming, videoRef]);
 
   return (
-    <div className="webcam-container flex-1 min-h-[500px] lg:min-h-[600px]">
+    <div className="webcam-container h-full w-full">
       {error && (
         <Alert className="mb-4 border-destructive">
           <AlertCircle className="h-4 w-4" />
@@ -39,7 +39,7 @@ export function WebcamView({ videoRef, isStreaming, error, cameras, selectedCame
           className="h-full w-full object-cover"
         />
         
-        {isStreaming && (
+        {isStreaming && cameras.length > 1 && (
           <div className="absolute top-4 right-4">
             <CameraSelector
               cameras={cameras}

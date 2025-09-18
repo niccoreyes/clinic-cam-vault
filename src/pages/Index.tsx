@@ -171,34 +171,31 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-4">
+      {/* Minimal Header */}
+      <header className="border-b border-border/50 bg-card/30 backdrop-blur-sm">
+        <div className="container mx-auto px-4 py-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-medical text-white">
-                <Stethoscope className="h-6 w-6" />
+            <div className="flex items-center space-x-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-medical text-white">
+                <Stethoscope className="h-4 w-4" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-foreground">
-                  Medical Video Recorder
+                <h1 className="text-lg font-semibold text-foreground">
+                  Medical Recorder
                 </h1>
-                <p className="text-sm text-muted-foreground">
-                  Professional patient session recording
-                </p>
               </div>
             </div>
             
             <div className="flex items-center space-x-2 text-sm">
               {isOnline ? (
                 <>
-                  <Wifi className="h-4 w-4 text-success" />
-                  <span className="text-success">Online</span>
+                  <Wifi className="h-3 w-3 text-success" />
+                  <span className="text-success hidden sm:inline">Online</span>
                 </>
               ) : (
                 <>
-                  <WifiOff className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground">Offline</span>
+                  <WifiOff className="h-3 w-3 text-muted-foreground" />
+                  <span className="text-muted-foreground hidden sm:inline">Offline</span>
                 </>
               )}
             </div>
@@ -206,44 +203,51 @@ const Index = () => {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
-          {/* Left Column - Webcam and Recording */}
-          <div className="lg:col-span-2 space-y-6">
-            <WebcamView
-              videoRef={videoRef}
+      {/* Main Content - Full Screen Camera Focus */}
+      <main className="relative h-[calc(100vh-4rem)]">
+        {/* Camera View - Full Screen */}
+        <div className="absolute inset-0">
+          <WebcamView
+            videoRef={videoRef}
+            isStreaming={isStreaming}
+            error={error}
+            cameras={cameras}
+            selectedCameraId={selectedCameraId}
+            onStartStream={startStream}
+            onSwitchCamera={switchCamera}
+          />
+        </div>
+        
+        {/* Floating Control Panel */}
+        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
+          <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg">
+            <RecordButton
+              isRecording={isRecording}
               isStreaming={isStreaming}
-              error={error}
-              cameras={cameras}
-              selectedCameraId={selectedCameraId}
-              onStartStream={startStream}
-              onSwitchCamera={switchCamera}
+              onToggleRecording={handleToggleRecording}
             />
-            
-            <div className="flex justify-center">
-              <RecordButton
-                isRecording={isRecording}
-                isStreaming={isStreaming}
-                onToggleRecording={handleToggleRecording}
+          </div>
+        </div>
+
+        {/* Floating Sidebar */}
+        <div className="absolute top-4 right-4 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto z-10">
+          <div className="space-y-4">
+            <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg">
+              <PatientNameInput
+                patientName={patientName}
+                onPatientNameChange={setPatientName}
+                onClearAll={handleClearAll}
+                onGeneratePlaceholder={handleGeneratePlaceholder}
               />
             </div>
-          </div>
-
-          {/* Right Column - Sidebar */}
-          <div className="space-y-6">
-            <PatientNameInput
-              patientName={patientName}
-              onPatientNameChange={setPatientName}
-              onClearAll={handleClearAll}
-              onGeneratePlaceholder={handleGeneratePlaceholder}
-            />
             
-            <VideoGallery
-              videos={videos}
-              onPlayVideo={setSelectedVideo}
-              onDeleteVideo={handleDeleteVideo}
-            />
+            <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg">
+              <VideoGallery
+                videos={videos}
+                onPlayVideo={setSelectedVideo}
+                onDeleteVideo={handleDeleteVideo}
+              />
+            </div>
           </div>
         </div>
       </main>
