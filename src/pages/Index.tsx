@@ -5,7 +5,7 @@ import { PatientNameInput } from '@/components/PatientNameInput';
 import { VideoGallery } from '@/components/VideoGallery';
 import { VideoPlaybackDialog } from '@/components/VideoPlaybackDialog';
 import { useWebcam } from '@/hooks/useWebcam';
-import { saveVideo, getVideos, deleteVideo } from '@/lib/database';
+import { saveVideo, getVideos, deleteVideo, updateVideo } from '@/lib/database';
 import { generateVideoThumbnail, getNextPatientNumber } from '@/utils/videoUtils';
 import { useToast } from '@/hooks/use-toast';
 import { Stethoscope, Wifi, WifiOff } from 'lucide-react';
@@ -17,6 +17,7 @@ interface VideoRecord {
   thumbnail: string;
   duration: number;
   createdAt: Date;
+  hidePatient?: boolean;
 }
 
 const Index = () => {
@@ -169,42 +170,77 @@ const Index = () => {
     setPatientName(nextPatientNumber);
   };
 
+  // New: clear service worker registrations (confirmation + toast)
+  const handleClearServiceWorkers = async () => {
+    if (!('serviceWorker' in navigator)) {
+      toast({
+        title: 'Not supported',
+        description: 'Service workers are not supported in this browser.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const confirmClear = window.confirm('Unregister all service workers and clear caches? This may require a reload. Proceed?');
+    if (!confirmClear) return;
+
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(reg => reg.unregister()));
+      // Also try to clear caches (best-effort)
+      if ('caches' in window) {
+        try {
+          const cacheNames = await caches.keys();
+          await Promise.all(cacheNames.map(name => caches.delete(name)));
+        } catch (cacheErr) {
+          console.warn('Failed to clear caches:', cacheErr);
+        }
+      }
+
+      toast({
+        title: 'Service Workers Unregistered',
+        description: 'All service workers were unregistered. You may need to reload the page.',
+      });
+
+      const reloadConfirm = window.confirm('Reload page now to complete clearing?');
+      if (reloadConfirm) {
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error('Failed to unregister service workers:', err);
+      toast({
+        title: 'Error',
+        description: 'Failed to unregister service workers',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // New: toggle hidePatient flag on a video
+  const handleToggleHide = async (id: string, hide: boolean) => {
+    try {
+      await updateVideo(id, { hidePatient: hide });
+      await loadVideos();
+      toast({
+        title: hide ? 'Patient Hidden' : 'Patient Shown',
+        description: hide ? 'Patient name hidden for this video' : 'Patient name is now visible',
+      });
+    } catch (err) {
+      console.error('Failed to update video hide flag:', err);
+      toast({
+        title: 'Error',
+        description: 'Failed to update video',
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Minimal Header */}
-      <header className="border-b border-border/50 bg-card/30 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-medical text-white">
-                <Stethoscope className="h-4 w-4" />
-              </div>
-              <div>
-                <h1 className="text-lg font-semibold text-foreground">
-                  Medical Recorder
-                </h1>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-2 text-sm">
-              {isOnline ? (
-                <>
-                  <Wifi className="h-3 w-3 text-success" />
-                  <span className="text-success hidden sm:inline">Online</span>
-                </>
-              ) : (
-                <>
-                  <WifiOff className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-muted-foreground hidden sm:inline">Offline</span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
+      {/* Header removed - full-screen camera focus */}
 
       {/* Main Content - Full Screen Camera Focus */}
-      <main className="relative h-[calc(100vh-4rem)]">
+      <main className="relative h-[100vh]">
         {/* Camera View - Full Screen */}
         <div className="absolute inset-0">
           <WebcamView
@@ -238,6 +274,7 @@ const Index = () => {
                 onPatientNameChange={setPatientName}
                 onClearAll={handleClearAll}
                 onGeneratePlaceholder={handleGeneratePlaceholder}
+                onClearServiceWorkers={handleClearServiceWorkers}
               />
             </div>
             
@@ -246,6 +283,7 @@ const Index = () => {
                 videos={videos}
                 onPlayVideo={setSelectedVideo}
                 onDeleteVideo={handleDeleteVideo}
+                onToggleHide={handleToggleHide}
               />
             </div>
           </div>

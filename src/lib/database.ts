@@ -7,6 +7,7 @@ interface VideoRecord {
   thumbnail: string;
   duration: number;
   createdAt: Date;
+  hidePatient?: boolean;
 }
 
 interface MedicalRecorderDB extends DBSchema {
@@ -54,6 +55,7 @@ export async function saveVideo(
     thumbnail,
     duration,
     createdAt: new Date(),
+    hidePatient: false,
   };
 
   await db.add('videos', videoRecord);
@@ -62,6 +64,7 @@ export async function saveVideo(
 
 export async function getVideos(): Promise<VideoRecord[]> {
   const db = await getDatabase();
+  // getAllFromIndex returns in index order; we will sort in UI if needed
   return db.getAllFromIndex('videos', 'by-date');
 }
 
@@ -78,4 +81,15 @@ export async function deleteVideo(id: string): Promise<void> {
 export async function getVideosByPatient(patientName: string): Promise<VideoRecord[]> {
   const db = await getDatabase();
   return db.getAllFromIndex('videos', 'by-patient', patientName);
+}
+
+export async function updateVideo(id: string, updates: Partial<VideoRecord>): Promise<VideoRecord> {
+  const db = await getDatabase();
+  const existing = await db.get('videos', id);
+  if (!existing) {
+    throw new Error(`Video with id ${id} not found`);
+  }
+  const updated: VideoRecord = { ...existing, ...updates };
+  await db.put('videos', updated);
+  return updated;
 }

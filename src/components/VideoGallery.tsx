@@ -9,15 +9,17 @@ interface VideoRecord {
   thumbnail: string;
   duration: number;
   createdAt: Date;
+  hidePatient?: boolean;
 }
 
 interface VideoGalleryProps {
   videos: VideoRecord[];
   onPlayVideo: (video: VideoRecord) => void;
   onDeleteVideo: (id: string) => void;
+  onToggleHide?: (id: string, hide: boolean) => void;
 }
 
-export function VideoGallery({ videos, onPlayVideo, onDeleteVideo }: VideoGalleryProps) {
+export function VideoGallery({ videos, onPlayVideo, onDeleteVideo, onToggleHide }: VideoGalleryProps) {
   return (
     <div className="sidebar-card">
       <div className="flex items-center space-x-2 mb-4">
@@ -44,8 +46,10 @@ export function VideoGallery({ videos, onPlayVideo, onDeleteVideo }: VideoGaller
                 patientName={video.patientName}
                 duration={video.duration}
                 createdAt={video.createdAt}
+                hidden={!!video.hidePatient}
                 onPlay={() => onPlayVideo(video)}
                 onDelete={() => onDeleteVideo(video.id)}
+                onToggleHide={() => onToggleHide?.(video.id, !video.hidePatient)}
               />
             ))}
         </div>
