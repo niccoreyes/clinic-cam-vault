@@ -1,14 +1,15 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { WebcamView } from '@/components/WebcamView';
 import { RecordButton } from '@/components/RecordButton';
 import { PatientNameInput } from '@/components/PatientNameInput';
 import { VideoGallery } from '@/components/VideoGallery';
 import { VideoPlaybackDialog } from '@/components/VideoPlaybackDialog';
 import { useWebcam } from '@/hooks/useWebcam';
-import { saveVideo, getVideos, deleteVideo } from '@/lib/database';
+import { saveVideo, getVideos, deleteVideo, updateVideo } from '@/lib/database';
 import { generateVideoThumbnail, getNextPatientNumber } from '@/utils/videoUtils';
 import { useToast } from '@/hooks/use-toast';
-import { Stethoscope, Wifi, WifiOff } from 'lucide-react';
+import { Stethoscope, Wifi, WifiOff, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CameraSelector } from '@/components/CameraSelector';
 
 interface VideoRecord {
   id: string;
@@ -17,6 +18,7 @@ interface VideoRecord {
   thumbnail: string;
   duration: number;
   createdAt: Date;
+  hidePatient?: boolean;
 }
 
 const Index = () => {
@@ -26,6 +28,7 @@ const Index = () => {
     isStreaming,
     isRecording,
     error,
+    errorInfo,
     cameras,
     selectedCameraId,
     startStream,
@@ -40,11 +43,26 @@ const Index = () => {
   const [selectedVideo, setSelectedVideo] = useState<VideoRecord | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const { toast } = useToast();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  const loadVideos = useCallback(async () => {
+    try {
+      const savedVideos = await getVideos();
+      setVideos(savedVideos);
+    } catch (err) {
+      console.error('Failed to load videos:', err);
+      toast({
+        title: 'Error',
+        description: 'Failed to load saved videos',
+        variant: 'destructive',
+      });
+    }
+  }, [toast]);
 
   // Load videos on mount
   useEffect(() => {
     loadVideos();
-  }, []);
+  }, [loadVideos]);
 
   // Monitor online status
   useEffect(() => {
@@ -64,20 +82,6 @@ const Index = () => {
   useEffect(() => {
     startStream();
   }, [startStream]);
-
-  const loadVideos = async () => {
-    try {
-      const savedVideos = await getVideos();
-      setVideos(savedVideos);
-    } catch (err) {
-      console.error('Failed to load videos:', err);
-      toast({
-        title: 'Error',
-        description: 'Failed to load saved videos',
-        variant: 'destructive',
-      });
-    }
-  };
 
   const handleToggleRecording = async () => {
     if (isRecording) {
@@ -111,14 +115,18 @@ const Index = () => {
         });
       }
     } else {
+      // If no patient name, auto-generate one and proceed to start recording
       if (!patientName.trim()) {
+        const prefill = getNextPatientNumber(videos);
+        setPatientName(prefill);
+        startRecording();
         toast({
-          title: 'Patient Name Required',
-          description: 'Please enter a patient name before starting recording',
-          variant: 'destructive',
+          title: 'Recording Started',
+          description: `Recording session for ${prefill}`,
         });
         return;
       }
+
       startRecording();
       toast({
         title: 'Recording Started',
@@ -169,97 +177,160 @@ const Index = () => {
     setPatientName(nextPatientNumber);
   };
 
+  // New: clear service worker registrations (confirmation + toast)
+  const handleClearServiceWorkers = async () => {
+    if (!('serviceWorker' in navigator)) {
+      toast({
+        title: 'Not supported',
+        description: 'Service workers are not supported in this browser.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const confirmClear = window.confirm('Unregister all service workers and clear caches? This may require a reload. Proceed?');
+    if (!confirmClear) return;
+
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map(reg => reg.unregister()));
+      // Also try to clear caches (best-effort)
+      if ('caches' in window) {
+        try {
+          const cacheNames = await caches.keys();
+          await Promise.all(cacheNames.map(name => caches.delete(name)));
+        } catch (cacheErr) {
+          console.warn('Failed to clear caches:', cacheErr);
+        }
+      }
+
+      toast({
+        title: 'Service Workers Unregistered',
+        description: 'All service workers were unregistered. You may need to reload the page.',
+      });
+
+      const reloadConfirm = window.confirm('Reload page now to complete clearing?');
+      if (reloadConfirm) {
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error('Failed to unregister service workers:', err);
+      toast({
+        title: 'Error',
+        description: 'Failed to unregister service workers',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  // New: toggle hidePatient flag on a video
+  const handleToggleHide = async (id: string, hide: boolean) => {
+    try {
+      await updateVideo(id, { hidePatient: hide });
+      await loadVideos();
+      toast({
+        title: hide ? 'Patient Hidden' : 'Patient Shown',
+        description: hide ? 'Patient name hidden for this video' : 'Patient name is now visible',
+      });
+    } catch (err) {
+      console.error('Failed to update video hide flag:', err);
+      toast({
+        title: 'Error',
+        description: 'Failed to update video',
+        variant: 'destructive',
+      });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Minimal Header */}
-      <header className="border-b border-border/50 bg-card/30 backdrop-blur-sm">
-        <div className="container mx-auto px-4 py-2">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-medical text-white">
-                <Stethoscope className="h-4 w-4" />
-              </div>
-              <div>
-                <h1 className="text-lg font-semibold text-foreground">
-                  Medical Recorder
-                </h1>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-2 text-sm">
-              {isOnline ? (
-                <>
-                  <Wifi className="h-3 w-3 text-success" />
-                  <span className="text-success hidden sm:inline">Online</span>
-                </>
-              ) : (
-                <>
-                  <WifiOff className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-muted-foreground hidden sm:inline">Offline</span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content - Full Screen Camera Focus */}
-      <main className="relative h-[calc(100vh-4rem)]">
-        {/* Camera View - Full Screen */}
-        <div className="absolute inset-0">
-          <WebcamView
-            videoRef={videoRef}
-            isStreaming={isStreaming}
-            error={error}
-            cameras={cameras}
-            selectedCameraId={selectedCameraId}
-            onStartStream={startStream}
-            onSwitchCamera={switchCamera}
-          />
-        </div>
-        
-        {/* Floating Control Panel */}
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
-          <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg">
-            <RecordButton
-              isRecording={isRecording}
+      {/* Header removed - camera + sidebar layout */}
+      <main className="h-[100vh]">
+        <div className="flex h-full">
+          {/* Left: Camera area */}
+          <div className="relative flex-1 bg-black">
+            <WebcamView
+              videoRef={videoRef}
               isStreaming={isStreaming}
-              onToggleRecording={handleToggleRecording}
+              error={error}
+              errorInfo={errorInfo}
+              cameras={cameras}
+              selectedCameraId={selectedCameraId}
+              onStartStream={startStream}
+              onSwitchCamera={switchCamera}
             />
-          </div>
-        </div>
 
-        {/* Floating Sidebar */}
-        <div className="absolute top-4 right-4 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto z-10">
-          <div className="space-y-4">
-            <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg">
-              <PatientNameInput
-                patientName={patientName}
-                onPatientNameChange={setPatientName}
-                onClearAll={handleClearAll}
-                onGeneratePlaceholder={handleGeneratePlaceholder}
-              />
-            </div>
-            
-            <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg">
-              <VideoGallery
-                videos={videos}
-                onPlayVideo={setSelectedVideo}
-                onDeleteVideo={handleDeleteVideo}
-              />
+            {/* Controls centered at bottom of camera area */}
+            <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-10">
+              <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg">
+                <RecordButton
+                  isRecording={isRecording}
+                  isStreaming={isStreaming}
+                  onToggleRecording={handleToggleRecording}
+                />
+              </div>
             </div>
           </div>
+
+          {/* Right: Collapsible sidebar (non-overlapping) */}
+          <aside className={`flex-shrink-0 border-l border-border bg-card/90 transition-all duration-200 ${sidebarOpen ? 'w-80 p-4' : 'w-16 p-2'}`}>
+            <div className="flex flex-col h-full">
+              <div className="flex items-center justify-end">
+                <button
+                  onClick={() => setSidebarOpen(v => !v)}
+                  aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+                  className="p-1 rounded-md hover:bg-muted"
+                >
+                  {sidebarOpen ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+                </button>
+              </div>
+
+              <div className="mt-2 flex-1 overflow-y-auto">
+                {sidebarOpen ? (
+                  <div className="space-y-4">
+                    <div className="rounded-lg p-2">
+                      <CameraSelector cameras={cameras} selectedCameraId={selectedCameraId} onSwitchCamera={switchCamera} disabled={!isStreaming} />
+                      <div className="mt-3">
+                        <PatientNameInput
+                          patientName={patientName}
+                          onPatientNameChange={setPatientName}
+                          onClearAll={handleClearAll}
+                          onGeneratePlaceholder={handleGeneratePlaceholder}
+                          onClearServiceWorkers={handleClearServiceWorkers}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg p-2">
+                      <VideoGallery
+                        videos={videos}
+                        onPlayVideo={setSelectedVideo}
+                        onDeleteVideo={handleDeleteVideo}
+                        onToggleHide={handleToggleHide}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center space-y-4 mt-4">
+                    {/* When collapsed we still render the selector (it returns null if single camera) */}
+                    <CameraSelector cameras={cameras} selectedCameraId={selectedCameraId} onSwitchCamera={switchCamera} disabled={!isStreaming} />
+                    {/* Small icons could be added here for quick actions */}
+                  </div>
+                )}
+              </div>
+            </div>
+          </aside>
         </div>
       </main>
 
-      {/* Video Playback Dialog */}
-      <VideoPlaybackDialog
-        video={selectedVideo}
-        open={!!selectedVideo}
-        onClose={() => setSelectedVideo(null)}
-      />
-    </div>
-  );
-};
+       {/* Video Playback Dialog */}
+       <VideoPlaybackDialog
+         video={selectedVideo}
+         open={!!selectedVideo}
+         onClose={() => setSelectedVideo(null)}
+       />
+     </div>
+   );
+ };
 
-export default Index;
+ export default Index;

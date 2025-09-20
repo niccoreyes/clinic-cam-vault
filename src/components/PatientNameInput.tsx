@@ -1,5 +1,5 @@
 import React from 'react';
-import { Menu, User, UserPlus } from 'lucide-react';
+import { Menu, User, UserPlus, WifiOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -15,13 +15,15 @@ interface PatientNameInputProps {
   onPatientNameChange: (name: string) => void;
   onClearAll: () => void;
   onGeneratePlaceholder: () => void;
+  onClearServiceWorkers: () => void;
 }
 
-export function PatientNameInput({ 
-  patientName, 
-  onPatientNameChange, 
+export function PatientNameInput({
+  patientName,
+  onPatientNameChange,
   onClearAll,
-  onGeneratePlaceholder
+  onGeneratePlaceholder,
+  onClearServiceWorkers,
 }: PatientNameInputProps) {
   return (
     <div className="sidebar-card space-y-4">
@@ -30,7 +32,7 @@ export function PatientNameInput({
           <User className="mr-2 h-5 w-5 text-medical" />
           Patient Name
         </h3>
-        
+
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm">
@@ -46,16 +48,24 @@ export function PatientNameInput({
               Clear Patient Name
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem 
+            <DropdownMenuItem
               onClick={onClearAll}
               className="text-destructive focus:text-destructive"
             >
               Clear All Videos
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={onClearServiceWorkers}
+              className="text-warning focus:text-warning"
+            >
+              <WifiOff className="h-4 w-4 mr-2" />
+              Clear Service Workers
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      
+
       <div className="flex gap-2">
         <Input
           type="text"
@@ -64,8 +74,8 @@ export function PatientNameInput({
           onChange={(e) => onPatientNameChange(e.target.value)}
           className="flex-1"
         />
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           size="sm"
           onClick={onGeneratePlaceholder}
           title="Generate Patient Number"

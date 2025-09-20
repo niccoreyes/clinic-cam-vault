@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Trash2, Calendar, Clock } from 'lucide-react';
+import { Play, Trash2, Calendar, Clock, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -19,8 +19,10 @@ interface VideoThumbnailProps {
   patientName: string;
   duration: number;
   createdAt: Date;
+  hidden?: boolean;
   onPlay: () => void;
   onDelete: () => void;
+  onToggleHide?: () => void;
 }
 
 export function VideoThumbnail({
@@ -29,8 +31,10 @@ export function VideoThumbnail({
   patientName,
   duration,
   createdAt,
+  hidden = false,
   onPlay,
   onDelete,
+  onToggleHide,
 }: VideoThumbnailProps) {
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -74,7 +78,7 @@ export function VideoThumbnail({
       
       <div className="mt-3 space-y-2">
         <h4 className="font-medium text-foreground text-sm line-clamp-1">
-          {patientName || 'Unnamed Patient'}
+          {hidden ? 'Hidden Patient' : (patientName || 'Unnamed Patient')}
         </h4>
         
         <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -83,34 +87,48 @@ export function VideoThumbnail({
             {formatDate(createdAt)}
           </div>
           
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete Video</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Are you sure you want to delete this video recording? This action cannot be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={onDelete}
-                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+          <div className="flex items-center space-x-2">
+            {/* Toggle hide/show patient name */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+              onClick={onToggleHide}
+              aria-label={hidden ? 'Show patient name' : 'Hide patient name'}
+              title={hidden ? 'Show patient name' : 'Hide patient name'}
+            >
+              {hidden ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+            </Button>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
                 >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Video</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to delete this video recording? This action cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={onDelete}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
       </div>
     </div>

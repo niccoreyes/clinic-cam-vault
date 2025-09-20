@@ -18,6 +18,22 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // If the request is a blob: URL, do not intercept — let browser handle it
+  try {
+    if (event.request.url.startsWith('blob:')) {
+      return; // no event.respondWith -> browser default handling
+    }
+  } catch (e) {
+    // ignore
+  }
+  // If the request includes a Range header, bypass cache to avoid partial content issues
+  const rangeHeader = event.request.headers.get('range');
+  if (rangeHeader) {
+    // For blob/video playback with Range requests, just forward to network
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then((response) => {
