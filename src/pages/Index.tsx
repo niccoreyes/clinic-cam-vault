@@ -27,6 +27,7 @@ const Index = () => {
     isStreaming,
     isRecording,
     error,
+    errorInfo,
     cameras,
     selectedCameraId,
     startStream,
@@ -112,14 +113,18 @@ const Index = () => {
         });
       }
     } else {
+      // If no patient name, auto-generate one and proceed to start recording
       if (!patientName.trim()) {
+        const prefill = getNextPatientNumber(videos);
+        setPatientName(prefill);
+        startRecording();
         toast({
-          title: 'Patient Name Required',
-          description: 'Please enter a patient name before starting recording',
-          variant: 'destructive',
+          title: 'Recording Started',
+          description: `Recording session for ${prefill}`,
         });
         return;
       }
+
       startRecording();
       toast({
         title: 'Recording Started',
@@ -247,6 +252,7 @@ const Index = () => {
             videoRef={videoRef}
             isStreaming={isStreaming}
             error={error}
+            errorInfo={errorInfo}
             cameras={cameras}
             selectedCameraId={selectedCameraId}
             onStartStream={startStream}
