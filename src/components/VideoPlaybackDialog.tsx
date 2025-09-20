@@ -28,11 +28,49 @@ export function VideoPlaybackDialog({ video, open, onClose }: VideoPlaybackDialo
 
   useEffect(() => {
     if (video && videoRef.current) {
+      const vidEl = videoRef.current;
       const url = URL.createObjectURL(video.blob);
-      videoRef.current.src = url;
-      
+      let handled = false;
+
+      const onError = (ev: Event) => {
+        // Log detailed error for debugging playback issues
+        try {
+          console.error('Video playback error', ev, { url, blobSize: video.blob.size, blobType: video.blob.type });
+        } catch (logErr) {
+          // no-op
+          void 0;
+        }
+      };
+
+      const onLoadedData = () => {
+        // Ensure the video element has loaded enough metadata/frames
+        handled = true;
+        try { vidEl.currentTime = 0; } catch (seekErr) { console.warn('Could not set currentTime', seekErr); }
+      };
+
+      try {
+        vidEl.removeAttribute('src');
+        vidEl.src = url;
+        vidEl.load();
+      } catch (e) {
+        console.error('Failed to assign video src or load:', e);
+      }
+
+      vidEl.addEventListener('error', onError);
+      vidEl.addEventListener('loadeddata', onLoadedData);
+
       return () => {
-        URL.revokeObjectURL(url);
+        try {
+          vidEl.removeEventListener('error', onError);
+          vidEl.removeEventListener('loadeddata', onLoadedData);
+        } catch (remErr) { console.warn('Error removing video listeners', remErr); }
+        try {
+          // Pause and clear source before revoking to avoid range requests against revoked URL
+          vidEl.pause();
+          vidEl.removeAttribute('src');
+          vidEl.load();
+        } catch (clearErr) { console.warn('Error clearing video src', clearErr); }
+        try { URL.revokeObjectURL(url); } catch (revokeErr) { console.warn('Failed to revoke object URL', revokeErr); }
       };
     }
   }, [video]);

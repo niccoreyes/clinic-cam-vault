@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { WebcamView } from '@/components/WebcamView';
 import { RecordButton } from '@/components/RecordButton';
 import { PatientNameInput } from '@/components/PatientNameInput';
@@ -8,7 +8,8 @@ import { useWebcam } from '@/hooks/useWebcam';
 import { saveVideo, getVideos, deleteVideo, updateVideo } from '@/lib/database';
 import { generateVideoThumbnail, getNextPatientNumber } from '@/utils/videoUtils';
 import { useToast } from '@/hooks/use-toast';
-import { Stethoscope, Wifi, WifiOff } from 'lucide-react';
+import { Stethoscope, Wifi, WifiOff, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CameraSelector } from '@/components/CameraSelector';
 
 interface VideoRecord {
   id: string;
@@ -42,11 +43,26 @@ const Index = () => {
   const [selectedVideo, setSelectedVideo] = useState<VideoRecord | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const { toast } = useToast();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  const loadVideos = useCallback(async () => {
+    try {
+      const savedVideos = await getVideos();
+      setVideos(savedVideos);
+    } catch (err) {
+      console.error('Failed to load videos:', err);
+      toast({
+        title: 'Error',
+        description: 'Failed to load saved videos',
+        variant: 'destructive',
+      });
+    }
+  }, [toast]);
 
   // Load videos on mount
   useEffect(() => {
     loadVideos();
-  }, []);
+  }, [loadVideos]);
 
   // Monitor online status
   useEffect(() => {
@@ -66,20 +82,6 @@ const Index = () => {
   useEffect(() => {
     startStream();
   }, [startStream]);
-
-  const loadVideos = async () => {
-    try {
-      const savedVideos = await getVideos();
-      setVideos(savedVideos);
-    } catch (err) {
-      console.error('Failed to load videos:', err);
-      toast({
-        title: 'Error',
-        description: 'Failed to load saved videos',
-        variant: 'destructive',
-      });
-    }
-  };
 
   const handleToggleRecording = async () => {
     if (isRecording) {
@@ -242,68 +244,93 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header removed - full-screen camera focus */}
-
-      {/* Main Content - Full Screen Camera Focus */}
-      <main className="relative h-[100vh]">
-        {/* Camera View - Full Screen */}
-        <div className="absolute inset-0">
-          <WebcamView
-            videoRef={videoRef}
-            isStreaming={isStreaming}
-            error={error}
-            errorInfo={errorInfo}
-            cameras={cameras}
-            selectedCameraId={selectedCameraId}
-            onStartStream={startStream}
-            onSwitchCamera={switchCamera}
-          />
-        </div>
-        
-        {/* Floating Control Panel */}
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10">
-          <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg">
-            <RecordButton
-              isRecording={isRecording}
+      {/* Header removed - camera + sidebar layout */}
+      <main className="h-[100vh]">
+        <div className="flex h-full">
+          {/* Left: Camera area */}
+          <div className="relative flex-1 bg-black">
+            <WebcamView
+              videoRef={videoRef}
               isStreaming={isStreaming}
-              onToggleRecording={handleToggleRecording}
+              error={error}
+              errorInfo={errorInfo}
+              cameras={cameras}
+              selectedCameraId={selectedCameraId}
+              onStartStream={startStream}
+              onSwitchCamera={switchCamera}
             />
-          </div>
-        </div>
 
-        {/* Floating Sidebar */}
-        <div className="absolute top-4 right-4 w-80 max-h-[calc(100vh-8rem)] overflow-y-auto z-10">
-          <div className="space-y-4">
-            <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg">
-              <PatientNameInput
-                patientName={patientName}
-                onPatientNameChange={setPatientName}
-                onClearAll={handleClearAll}
-                onGeneratePlaceholder={handleGeneratePlaceholder}
-                onClearServiceWorkers={handleClearServiceWorkers}
-              />
-            </div>
-            
-            <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg">
-              <VideoGallery
-                videos={videos}
-                onPlayVideo={setSelectedVideo}
-                onDeleteVideo={handleDeleteVideo}
-                onToggleHide={handleToggleHide}
-              />
+            {/* Controls centered at bottom of camera area */}
+            <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-10">
+              <div className="bg-card/90 backdrop-blur-sm border border-border rounded-lg p-4 shadow-lg">
+                <RecordButton
+                  isRecording={isRecording}
+                  isStreaming={isStreaming}
+                  onToggleRecording={handleToggleRecording}
+                />
+              </div>
             </div>
           </div>
+
+          {/* Right: Collapsible sidebar (non-overlapping) */}
+          <aside className={`flex-shrink-0 border-l border-border bg-card/90 transition-all duration-200 ${sidebarOpen ? 'w-80 p-4' : 'w-16 p-2'}`}>
+            <div className="flex flex-col h-full">
+              <div className="flex items-center justify-end">
+                <button
+                  onClick={() => setSidebarOpen(v => !v)}
+                  aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+                  className="p-1 rounded-md hover:bg-muted"
+                >
+                  {sidebarOpen ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+                </button>
+              </div>
+
+              <div className="mt-2 flex-1 overflow-y-auto">
+                {sidebarOpen ? (
+                  <div className="space-y-4">
+                    <div className="rounded-lg p-2">
+                      <CameraSelector cameras={cameras} selectedCameraId={selectedCameraId} onSwitchCamera={switchCamera} disabled={!isStreaming} />
+                      <div className="mt-3">
+                        <PatientNameInput
+                          patientName={patientName}
+                          onPatientNameChange={setPatientName}
+                          onClearAll={handleClearAll}
+                          onGeneratePlaceholder={handleGeneratePlaceholder}
+                          onClearServiceWorkers={handleClearServiceWorkers}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg p-2">
+                      <VideoGallery
+                        videos={videos}
+                        onPlayVideo={setSelectedVideo}
+                        onDeleteVideo={handleDeleteVideo}
+                        onToggleHide={handleToggleHide}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center space-y-4 mt-4">
+                    {/* When collapsed we still render the selector (it returns null if single camera) */}
+                    <CameraSelector cameras={cameras} selectedCameraId={selectedCameraId} onSwitchCamera={switchCamera} disabled={!isStreaming} />
+                    {/* Small icons could be added here for quick actions */}
+                  </div>
+                )}
+              </div>
+            </div>
+          </aside>
         </div>
       </main>
 
-      {/* Video Playback Dialog */}
-      <VideoPlaybackDialog
-        video={selectedVideo}
-        open={!!selectedVideo}
-        onClose={() => setSelectedVideo(null)}
-      />
-    </div>
-  );
-};
+       {/* Video Playback Dialog */}
+       <VideoPlaybackDialog
+         video={selectedVideo}
+         open={!!selectedVideo}
+         onClose={() => setSelectedVideo(null)}
+       />
+     </div>
+   );
+ };
 
-export default Index;
+ export default Index;
